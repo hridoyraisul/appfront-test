@@ -22,7 +22,7 @@ class ProductController extends Controller
         $products = Product::latest('id')->paginate(10, ['id', 'name', 'price', 'image', 'description']);
         $exchangeRate = $this->getExchangeRate();
         $products->getCollection()->transform(function ($product) use ($exchangeRate) {
-            $product->image = asset($product->image);
+            $product->image = asset('img/' . $product->image);
             $product->description = Str::limit($product->description, 100);
             $product->price_usd = number_format($product->price, 2);
             $product->price_eur = number_format($product->price * $exchangeRate, 2);
@@ -39,7 +39,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $exchangeRate = $this->getExchangeRate();
-        $product->image = asset($product->image);
+        $product->image = asset('img/' . $product->image);
         $product->price_usd = number_format($product->price, 2);
         $product->price_eur = number_format($product->price * $exchangeRate, 2);
         return view('products.show', compact('product', 'exchangeRate'));
