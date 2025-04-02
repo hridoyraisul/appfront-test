@@ -6,7 +6,7 @@ use App\Http\Controllers\AdminController;
 
 Route::get('/', [ProductController::class, 'index']);
 
-Route::get('/products/{product_id}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
 
 Route::get('/login', [AdminController::class, 'loginPage'])->name('login');
 Route::post('/login', [AdminController::class, 'login'])->name('login.submit');
