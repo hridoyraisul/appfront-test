@@ -11,10 +11,19 @@ use Illuminate\Support\Facades\Validator;
 use App\Jobs\SendPriceChangeNotification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use App\Repositories\Interfaces\ProductRepositoryInterface;
 
 class AdminController extends Controller
 {
     const DEFAULT_IMAGE = 'product-placeholder.jpg';
+
+    private $productRepository;
+
+    public function __construct(ProductRepositoryInterface $productRepository)
+    {
+        $this->productRepository = $productRepository;
+    }
+
     public function loginPage()
     {
         return view('login');
@@ -36,18 +45,13 @@ class AdminController extends Controller
 
     public function products()
     {
-        $products = Product::latest('id')->paginate(10);
-        $products->getCollection()->transform(function ($product) {
-            $product->image = asset('img/' . $product->image);
-            $product->price = number_format($product->price, 2);
-            return $product;
-        });
+        $products = $this->productRepository->allPaginated(10);
         return view('admin.products', compact('products'));
     }
 
     public function editProduct(Product $product)
     {
-        $product->image = asset('img/' . $product->image);
+        $product->image = $this->productRepository->getProductImagePath($product);
         return view('admin.edit_product', compact('product'));
     }
 
@@ -59,33 +63,26 @@ class AdminController extends Controller
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:500',
         ]);
+
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
+
         DB::beginTransaction();
         try {
             $requestData = $request->only(['name', 'price', 'description']);
+
             if ($request->hasFile('image')) {
                 $requestData['image'] = $this->uploadImage($request->file('image'), $product->image);
             }
+
             $oldPrice = $product->price;
-            $product->update($requestData);
+            $this->productRepository->update($product, $requestData);
+
             if ($oldPrice != $product->price) {
-                $notificationEmail = config('mail.price_notify_email');
-                rescue(function () use ($notificationEmail, $product, $oldPrice) {
-                    if (!filter_var($notificationEmail, FILTER_VALIDATE_EMAIL)) {
-                        Log::error('Invalid email address for price change notification');
-                    }
-                    SendPriceChangeNotification::dispatch(
-                        $product,
-                        $oldPrice,
-                        $product->price,
-                        $notificationEmail
-                    );
-                }, function ($e) {
-                    Log::error('Failed to send price change notification: ' . $e->getMessage());
-                });
+                $this->handlePriceChangeNotification($product, $oldPrice);
             }
+
             DB::commit();
             return redirect()->route('admin.products')->with('success', 'Product updated successfully');
         } catch (Exception $e) {
@@ -97,13 +94,7 @@ class AdminController extends Controller
 
     public function deleteProduct(Product $product)
     {
-        if ($product->image && ($product->image != $this::DEFAULT_IMAGE)) {
-            $imagePath = public_path('img/' . $product->image);
-            if (file_exists($imagePath)) {
-                unlink($imagePath);
-            }
-        }
-        $product->delete();
+        $this->productRepository->delete($product);
         return redirect()->route('admin.products')->with('success', 'Product deleted successfully');
     }
 
@@ -120,24 +111,28 @@ class AdminController extends Controller
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:500',
         ]);
+
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
+
         DB::beginTransaction();
         try {
-            $imageName = $this::DEFAULT_IMAGE;
+            $imageName = self::DEFAULT_IMAGE;
             if ($request->hasFile('image')) {
                 $imageName = $this->uploadImage($request->file('image'));
             }
-            Product::create([
+
+            $this->productRepository->create([
                 'name' => $request->name,
                 'description' => $request->description,
                 'price' => $request->price,
                 'image' => $imageName,
             ]);
+
             DB::commit();
             return redirect()->route('admin.products')->with('success', 'Product added successfully');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to add product: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to add product');
@@ -149,15 +144,37 @@ class AdminController extends Controller
         try {
             $imageName = $file->hashName();
             $file->move(public_path('img'), $imageName);
-            if ($oldFile && ($oldFile != $this::DEFAULT_IMAGE)) {
+
+            if ($oldFile && ($oldFile != self::DEFAULT_IMAGE)) {
                 $oldImagePath = public_path('img/' . $oldFile);
                 if (file_exists($oldImagePath)) {
                     unlink($oldImagePath);
                 }
             }
+
             return $imageName;
         } catch (Exception $e) {
             return null;
         }
+    }
+
+    private function handlePriceChangeNotification(Product $product, float $oldPrice): void
+    {
+        $notificationEmail = config('mail.price_notify_email');
+
+        rescue(function () use ($notificationEmail, $product, $oldPrice) {
+            if (!filter_var($notificationEmail, FILTER_VALIDATE_EMAIL)) {
+                Log::error('Invalid email address for price change notification');
+            }
+
+            SendPriceChangeNotification::dispatch(
+                $product,
+                $oldPrice,
+                $product->price,
+                $notificationEmail
+            );
+        }, function ($e) {
+            Log::error('Failed to send price change notification: ' . $e->getMessage());
+        });
     }
 }
