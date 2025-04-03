@@ -1,0 +1,44 @@
+The below changes I have brings out in this projects,
+
+Route Optimization:
+ - Wrap up login routes in guest middleware for separating from authenticated users.
+ - Use resource routes for products instead of writing more routes. 
+ - Use alias in namespacing for admin products controller.
+
+Folder Structure Update:
+ - changes folder structure in controller for better readablity and organize codes.
+ - Global ProductController in "Web" folder and Administrative controllers are in "Admin" folder.
+
+Design Pattern Apply:
+ - Implemented repository pattern for products.
+ - Integrated it in Admin/ProductController as needed for Optimization and well structure codebase.
+
+ Blade File optimizations:
+ - ustom layout blade page for reusing in all blade files for same content. 
+ - Use vite config initialization for better performance in blade file. 
+ - Visualize bootstrap pagination for product listings.
+
+Optimization in Product Listing Home Page:
+ - Added pagination to Optimization of query instead of getting all items.
+ - For better user experience sorted latest items first.
+ - Transformed the collection with proper visualize format of data.
+ - Optimize the exchange rate API call features with traditional curl request to Laravel's Http client request.
+ - Added chaching mechanism for making the faster load and optimized API call measures.
+ - Include documentation for methods.
+ - Handled image path set up features.
+
+ Administrative Panel Optimize:
+  - changes methods name in ProductController as resource routes provided methods.
+  - Change image file storing mechanism, use storage instead of traditional moving file in public folder.
+  - Updateing and deleting mechanism has been optimized.
+  - Price changeing event notification system updated, optimized for error handling.
+  - Use DataBase transaction for in product storing to database.
+
+
+ Suggetions for future enhanchement:
+ ===================================
+  - Use 2FA in loging system 
+  - Implement google recaptha in each form
+  - Refactor design with tailwind css for making it lightweight and stylish
+  - USe frontend framework like Vue.js for better user interactivity
+  - Compress images when uploading instead of keeping original size images.
