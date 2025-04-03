@@ -6,6 +6,7 @@ namespace App\Repositories;
 use App\Models\Product;
 use App\Repositories\Interfaces\ProductRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
 
 class ProductRepository implements ProductRepositoryInterface
 {
@@ -39,17 +40,16 @@ class ProductRepository implements ProductRepositoryInterface
 
     public function delete(Product $product): bool
     {
+        if ($product->image && $product->image !== self::DEFAULT_IMAGE) {
+            Storage::disk('public')->delete("img/{$product->image}");
+        }
         return $product->delete();
     }
 
     public function getProductImagePath(Product $product): string
     {
-        if ($product->image && ($product->image != self::DEFAULT_IMAGE)) {
-            $imagePath = public_path('img/' . $product->image);
-            if (file_exists($imagePath)) {
-                unlink($imagePath);
-            }
-        }
-        return asset('img/' . $product->image);
+        return $product->image && ($product->image !== self::DEFAULT_IMAGE)
+            ? asset('storage/img/' . $product->image)
+            : asset('img/' . self::DEFAULT_IMAGE);
     }
 }

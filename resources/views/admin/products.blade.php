@@ -40,7 +40,7 @@
     <div class="admin-header">
         <h1>Admin - Products</h1>
         <div>
-            <a href="{{ route('admin.add.product') }}" class="btn btn-primary">Add New Product</a>
+            <a href="{{ route('products.create') }}" class="btn btn-primary">Add New Product</a>
             <a href="{{ route('logout') }}" class="btn btn-secondary">Logout</a>
         </div>
     </div>
@@ -73,8 +73,8 @@
                 <td>{{ $product->name }}</td>
                 <td>${{ $product->price }}</td>
                 <td>
-                    <a href="{{ route('admin.edit.product', $product->id) }}" class="btn btn-primary">Edit</a>
-                    <a href="{{ route('admin.delete.product', $product->id) }}" class="btn btn-secondary" onclick="return confirm('Are you sure you want to delete this product?')">Delete</a>
+                    <a href="{{ route('products.edit', $product->id) }}" class="btn btn-primary">Edit</a>
+                    <a href="{{ route('products.destroy', $product->id) }}" class="btn btn-secondary" onclick="return confirm('Are you sure you want to delete this product?')">Delete</a>
                 </td>
             </tr>
             @endforeach

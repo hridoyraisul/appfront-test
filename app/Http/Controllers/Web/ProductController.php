@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Web;
 
+use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -9,6 +10,12 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+
+    /**
+     * @var string
+     */
+    const DEFAULT_IMAGE = 'product-placeholder.jpg';
+
     /**
      * @var float
      */
@@ -22,7 +29,7 @@ class ProductController extends Controller
         $products = Product::latest('id')->paginate(10, ['id', 'name', 'price', 'image', 'description']);
         $exchangeRate = $this->getExchangeRate();
         $products->getCollection()->transform(function ($product) use ($exchangeRate) {
-            $product->image = asset('img/' . $product->image);
+            $product->image = $this->getProductImagePath($product);
             $product->description = Str::limit($product->description, 100);
             $product->price_usd = number_format($product->price, 2);
             $product->price_eur = number_format($product->price * $exchangeRate, 2);
@@ -43,6 +50,13 @@ class ProductController extends Controller
         $product->price_usd = number_format($product->price, 2);
         $product->price_eur = number_format($product->price * $exchangeRate, 2);
         return view('products.show', compact('product', 'exchangeRate'));
+    }
+
+    public function getProductImagePath(Product $product): string
+    {
+        return $product->image && ($product->image !== self::DEFAULT_IMAGE)
+            ? asset('storage/img/' . $product->image)
+            : asset('img/' . self::DEFAULT_IMAGE);
     }
 
     /**

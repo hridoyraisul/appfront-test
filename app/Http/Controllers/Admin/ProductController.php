@@ -1,19 +1,20 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Product;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Jobs\SendPriceChangeNotification;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use App\Repositories\Interfaces\ProductRepositoryInterface;
 
-class AdminController extends Controller
+class ProductController extends Controller
 {
     const DEFAULT_IMAGE = 'product-placeholder.jpg';
 
@@ -24,38 +25,38 @@ class AdminController extends Controller
         $this->productRepository = $productRepository;
     }
 
-    public function loginPage()
-    {
-        return view('login');
-    }
 
-    public function login(Request $request)
-    {
-        if (Auth::attempt($request->except('_token'))) {
-            return redirect()->route('admin.products');
-        }
-        return redirect()->back()->with('error', 'Invalid login credentials');
-    }
-
-    public function logout()
-    {
-        Auth::logout();
-        return redirect()->route('login');
-    }
-
-    public function products()
+    /**
+     * Display the list of products.
+     *
+     * @return \Illuminate\View\View The view for displaying products.
+     */
+    public function index()
     {
         $products = $this->productRepository->allPaginated(10);
         return view('admin.products', compact('products'));
     }
 
-    public function editProduct(Product $product)
+    /**
+     * Display the edit product form.
+     *
+     * @param Product $product The product to be edited.
+     * @return \Illuminate\View\View The view for editing the product.
+     */
+    public function edit(Product $product)
     {
         $product->image = $this->productRepository->getProductImagePath($product);
         return view('admin.edit_product', compact('product'));
     }
 
-    public function updateProduct(Request $request, Product $product)
+    /**
+     * Update product
+     *
+     * @param Request $request
+     * @param Product $product
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function update(Request $request, Product $product)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|min:3|unique:products,name,' . $product->id,
@@ -84,7 +85,7 @@ class AdminController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('admin.products')->with('success', 'Product updated successfully');
+            return redirect()->route('products.index')->with('success', 'Product updated successfully');
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to edit product: ' . $e->getMessage());
@@ -92,18 +93,24 @@ class AdminController extends Controller
         }
     }
 
-    public function deleteProduct(Product $product)
+    public function destroy(Product $product)
     {
         $this->productRepository->delete($product);
-        return redirect()->route('admin.products')->with('success', 'Product deleted successfully');
+        return redirect()->route('products.index')->with('success', 'Product deleted successfully');
     }
 
-    public function addProductForm()
+    public function create()
     {
         return view('admin.add_product');
     }
 
-    public function addProduct(Request $request)
+    /**
+     * Add new product
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|min:3|unique:products,name',
@@ -131,7 +138,7 @@ class AdminController extends Controller
             ]);
 
             DB::commit();
-            return redirect()->route('admin.products')->with('success', 'Product added successfully');
+            return redirect()->route('products.index')->with('success', 'Product added successfully');
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to add product: ' . $e->getMessage());
@@ -139,25 +146,32 @@ class AdminController extends Controller
         }
     }
 
+    /**
+     * Upload image and delete old one if exists
+     *
+     * @param UploadedFile $file
+     * @param string|null $oldFile
+     * @return string|null
+     */
     private function uploadImage(UploadedFile $file, $oldFile = null)
     {
         try {
-            $imageName = $file->hashName();
-            $file->move(public_path('img'), $imageName);
-
-            if ($oldFile && ($oldFile != self::DEFAULT_IMAGE)) {
-                $oldImagePath = public_path('img/' . $oldFile);
-                if (file_exists($oldImagePath)) {
-                    unlink($oldImagePath);
-                }
+            $imagePath = $file->store('img', 'public');
+            if ($oldFile && $oldFile !== self::DEFAULT_IMAGE) {
+                Storage::disk('public')->delete("img/{$oldFile}");
             }
-
-            return $imageName;
+            return basename($imagePath);
         } catch (Exception $e) {
             return null;
         }
     }
 
+    /**
+     * Handle price change notification
+     *
+     * @param Product $product
+     * @param float $oldPrice
+     */
     private function handlePriceChangeNotification(Product $product, float $oldPrice): void
     {
         $notificationEmail = config('mail.price_notify_email');
